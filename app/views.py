@@ -3,8 +3,8 @@ import os
 from werkzeug.security import check_password_hash
 
 from app import app, db, login_manager
-from flask import render_template, request, redirect, url_for, flash, session, abort
-from flask_login import login_user, logout_user, current_user, login_required
+from flask import render_template, request, redirect, url_for, flash, session, abort, send_from_directory
+from flask_login import login_user, logout_user, current_user, login_required, logout_user
 from werkzeug.utils import secure_filename
 from app.models import UserProfile
 from app.forms import LoginForm, UploadForm
@@ -13,6 +13,16 @@ from app.forms import LoginForm, UploadForm
 ###
 # Routing for your application.
 ###
+def get_uploaded_images():
+    uploaded_images = []
+    rootdir = os.path.join(app.config['UPLOAD_FOLDER'])
+    for subdir, dirs, files in os.walk(rootdir):
+        for file in files:
+            # Assuming you only want to list images, you might check the file extension here
+            if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                uploaded_images.append(file)
+    return uploaded_images
+
 
 @app.route('/')
 def home():
@@ -40,6 +50,18 @@ def upload():
     return render_template('upload.html', form=form)
 
 
+@app.route('/uploads/<filename>')
+def get_image(filename):
+    return send_from_directory(os.path.join(os.getcwd(), app.config['UPLOAD_FOLDER']), filename)
+
+
+@app.route('/files')
+@login_required
+def files():
+    image_filenames = get_uploaded_images()
+    return render_template('files.html', images=image_filenames)
+
+
 @app.route('/login', methods=['POST', 'GET'])
 def login():
     form = LoginForm()
@@ -53,6 +75,13 @@ def login():
         else:
             flash('Invalid username or password.', 'danger')
     return render_template("login.html", form=form)
+
+
+@app.route('/logout')
+def logout():
+    logout_user()
+    flash('You have been logged out.', 'success')
+    return redirect(url_for('home'))
 
 
 # user_loader callback. This callback is used to reload the user object from
